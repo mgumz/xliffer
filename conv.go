@@ -8,6 +8,9 @@
 
 package main
 
+// a converter transforms an input file. multiple converters
+// register themself to a registry and are then exposed as
+// xliffer commands
 type converter interface {
 	// the Description is shown while printing the usage
 	Description() string
