@@ -119,8 +119,8 @@ func (x *xlsxConverter) SheetToDoc(doc *xliffDoc, sheet *xlsx.Sheet) {
 
 		var unit = xliffTransUnit{
 			ID:     key,
-			Source: xliffTransUnitInner{source, sLang, "preserve"},
-			Target: xliffTransUnitInner{target, tLang, "preserve"},
+			Source: xliffTransUnitInner{source, sLang, "preserve", ""},
+			Target: xliffTransUnitInner{target, tLang, "preserve", ""},
 		}
 		if (x.noteColumn > 0) && (x.noteColumn <= len(row.Cells)) {
 			unit.Note = row.Cells[x.noteColumn-1].String()
