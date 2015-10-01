@@ -13,33 +13,51 @@ import (
 	"flag"
 	"log"
 	"os"
+	"regexp"
 )
 
-type toJson struct {
-	inFile string
-	pretty bool
+// toJSON converts the target translation to a simple key:value
+// structered JSON file
+type toJSON struct {
+	inFile   string
+	pretty   bool
+	keyMatch string
+	keyTo    string
 }
 
 func init() {
-	registeredConverters["to-json"] = new(toJson)
+	registeredConverters["to-json"] = new(toJSON)
 }
 
-func (tj *toJson) Description() string {
+func (tj *toJSON) Description() string {
 	return "Converts XLIFF to JSON (key,value)"
 }
 
-func (tj *toJson) ParseArgs(base string, args []string) error {
+func (tj *toJSON) ParseArgs(base string, args []string) error {
 	var fs = flag.NewFlagSet(base+" to-json", flag.ExitOnError)
 	fs.StringVar(&tj.inFile, "in", "", "infile")
+	fs.StringVar(&tj.keyMatch, "key-match", "", "translate chars in key (regexp)")
+	fs.StringVar(&tj.keyTo, "key-to", "", "chars of key gets translated to (string)")
 	fs.BoolVar(&tj.pretty, "pretty", tj.pretty, "pretty print the resulting json")
 	return fs.Parse(args)
 }
 
-func (tj *toJson) Convert() error {
+func (tj *toJSON) Convert() error {
 
 	var doc, err = xliffFromFile(tj.inFile)
 	if err != nil {
 		return err
+	}
+
+	var keyTrans = func(in string) string { return in }
+	if tj.keyMatch != "" {
+		rx, err := regexp.CompilePOSIX(tj.keyMatch)
+		if err != nil {
+			return err
+		}
+		keyTrans = func(in string) string {
+			return rx.ReplaceAllString(in, tj.keyTo)
+		}
 	}
 
 	var mappings = map[string]string{}
@@ -48,11 +66,13 @@ func (tj *toJson) Convert() error {
 		// note: no support for "groups" yet.
 		for _, unit := range file.Body.TransUnit {
 
-			if _, exist := mappings[unit.ID]; exist {
-				log.Printf("warning: double entry for key %q", unit.ID)
+			unitID := keyTrans(unit.ID)
+
+			if _, exist := mappings[unitID]; exist {
+				log.Printf("warning: double entry for key %q", unitID)
 			}
 
-			mappings[unit.ID] = unit.Target.Inner
+			mappings[unitID] = unit.Target.Inner
 		}
 	}
 
