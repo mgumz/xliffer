@@ -1,3 +1,11 @@
+// This file is part of *xliffer*
+//
+// Copyright (C) 2015, Travelping GmbH <copyright@travelping.com>
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 package main
 
 import (
@@ -10,6 +18,7 @@ import (
 
 func main() {
 
+	outFileName := flag.String("o", "-", "output file (default: \"-\"|stdout)")
 	flag.Usage = usage
 	flag.Parse()
 
@@ -36,14 +45,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := conv.Convert(); err != nil {
+	var outWriter = os.Stdout
+	if *outFileName != "" && *outFileName != "-" {
+		outFile, err2 := os.Create(*outFileName)
+		if err2 != nil {
+			fmt.Fprintf(os.Stderr, "error: can't create %q: %v\n",
+				*outFileName, err2)
+			os.Exit(1)
+		}
+		defer outFile.Close()
+		outWriter = outFile
+	}
+
+	if err := conv.Convert(outWriter); err != nil {
 		fmt.Fprintf(os.Stderr, "error: converting %v\n", err)
 	}
 }
 
 func usage() {
 	fmt.Printf("%s converts to and from XLIFF files\n\n", path.Base(os.Args[0]))
-	fmt.Printf("Usage: %s [-h] <converter> [cflags]\n\n", os.Args[0])
+	fmt.Printf("Usage: %s [-ho] <converter> [cflags]\n\n", os.Args[0])
 
 	var converters = []string{}
 	for c, _ := range registeredConverters {

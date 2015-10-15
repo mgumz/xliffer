@@ -11,7 +11,7 @@ package main
 import (
 	"encoding/xml"
 	"flag"
-	"os"
+	"io"
 )
 
 // setLang is simple converter to set the "lang=XX" attribute for
@@ -40,7 +40,7 @@ func (s *setLang) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
-func (s *setLang) Convert() error {
+func (s *setLang) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(s.inFile)
 	if err != nil {
@@ -63,8 +63,8 @@ func (s *setLang) Convert() error {
 		return err
 	}
 
-	os.Stdout.WriteString(xml.Header)
-	os.Stdout.Write(out)
+	io.WriteString(w, xml.Header)
+	w.Write(out)
 
 	return nil
 }

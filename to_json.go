@@ -11,8 +11,8 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"io"
 	"log"
-	"os"
 	"regexp"
 )
 
@@ -42,7 +42,7 @@ func (tj *toJSON) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
-func (tj *toJSON) Convert() error {
+func (tj *toJSON) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(tj.inFile)
 	if err != nil {
@@ -84,7 +84,7 @@ func (tj *toJSON) Convert() error {
 	}
 
 	if err == nil {
-		os.Stdout.Write(out)
+		w.Write(out)
 	}
 
 	return err

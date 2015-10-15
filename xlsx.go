@@ -12,7 +12,7 @@ import (
 	"encoding/xml"
 	"flag"
 	"fmt"
-	"os"
+	"io"
 
 	"github.com/tealeg/xlsx"
 )
@@ -54,7 +54,7 @@ func (x *xlsxConverter) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
-func (x *xlsxConverter) Convert() error {
+func (x *xlsxConverter) Convert(w io.Writer) error {
 
 	var xlFile, err = xlsx.OpenFile(x.fileName)
 	if err != nil {
@@ -83,8 +83,8 @@ func (x *xlsxConverter) Convert() error {
 		return err
 	}
 
-	os.Stdout.WriteString(xml.Header)
-	os.Stdout.Write(out)
+	io.WriteString(w, xml.Header)
+	w.Write(out)
 
 	return nil
 }

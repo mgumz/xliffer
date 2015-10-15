@@ -11,7 +11,7 @@ package main
 import (
 	"encoding/xml"
 	"flag"
-	"os"
+	"io"
 )
 
 // blankTarget is converter which blanks the target translation. it's purpose
@@ -35,7 +35,7 @@ func (b *blankTarget) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
-func (b *blankTarget) Convert() error {
+func (b *blankTarget) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(b.inFile)
 	if err != nil {
@@ -55,8 +55,8 @@ func (b *blankTarget) Convert() error {
 		return err
 	}
 
-	os.Stdout.WriteString(xml.Header)
-	os.Stdout.Write(out)
+	io.WriteString(w, xml.Header)
+	w.Write(out)
 
 	return nil
 }

@@ -11,7 +11,7 @@ package main
 import (
 	"encoding/xml"
 	"flag"
-	"os"
+	"io"
 )
 
 // swapSourceTarget is a converter which swaps source and target attributes.
@@ -35,7 +35,7 @@ func (s *swapSourceTarget) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
-func (s *swapSourceTarget) Convert() error {
+func (s *swapSourceTarget) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(s.inFile)
 	if err != nil {
@@ -58,8 +58,8 @@ func (s *swapSourceTarget) Convert() error {
 		return err
 	}
 
-	os.Stdout.WriteString(xml.Header)
-	os.Stdout.Write(out)
+	io.WriteString(w, xml.Header)
+	w.Write(out)
 
 	return nil
 }

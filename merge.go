@@ -12,7 +12,7 @@ import (
 	"encoding/xml"
 	"flag"
 	"fmt"
-	"os"
+	"io"
 )
 
 // mergeConv is converter which merges 2 .xliff files
@@ -36,7 +36,7 @@ func (m *mergeConv) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
-func (m *mergeConv) Convert() error {
+func (m *mergeConv) Convert(w io.Writer) error {
 
 	var (
 		err  error
@@ -60,8 +60,8 @@ func (m *mergeConv) Convert() error {
 		return err
 	}
 
-	os.Stdout.WriteString(xml.Header)
-	os.Stdout.Write(out)
+	io.WriteString(w, xml.Header)
+	w.Write(out)
 
 	return nil
 }

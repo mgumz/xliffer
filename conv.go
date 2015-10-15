@@ -8,6 +8,8 @@
 
 package main
 
+import "io"
+
 // a converter transforms an input file. multiple converters
 // register themself to a registry and are then exposed as
 // xliffer commands
@@ -19,7 +21,7 @@ type converter interface {
 	ParseArgs(base string, args []string) error
 
 	// converts the specified input file
-	Convert() error
+	Convert(out io.Writer) error
 }
 
 var registeredConverters = make(map[string]converter)

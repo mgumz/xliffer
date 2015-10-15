@@ -11,7 +11,7 @@ package main
 import (
 	"encoding/xml"
 	"flag"
-	"os"
+	"io"
 )
 
 // copyUnits copies the source translation units onto
@@ -34,7 +34,7 @@ func (c *copyUnits) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
-func (c *copyUnits) Convert() error {
+func (c *copyUnits) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(c.inFile)
 	if err != nil {
@@ -54,8 +54,8 @@ func (c *copyUnits) Convert() error {
 		return err
 	}
 
-	os.Stdout.WriteString(xml.Header)
-	os.Stdout.Write(out)
+	io.WriteString(w, xml.Header)
+	w.Write(out)
 
 	return nil
 }
