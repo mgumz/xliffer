@@ -105,16 +105,16 @@ func (x *xlsxConverter) SheetToDoc(doc *xliffDoc, sheet *xlsx.Sheet) {
 		if len(row.Cells)-1 < kCol {
 			continue
 		}
-		if key = row.Cells[kCol].String(); key == "" {
+		if key, _ = row.Cells[kCol].String(); key == "" {
 			continue
 		}
 
 		source, target = "", ""
 		if sCol < len(row.Cells) {
-			source = row.Cells[sCol].String()
+			source, _ = row.Cells[sCol].String()
 		}
 		if tCol < len(row.Cells) {
-			target = row.Cells[tCol].String()
+			target, _ = row.Cells[tCol].String()
 		}
 
 		var unit = xliffTransUnit{
@@ -123,7 +123,7 @@ func (x *xlsxConverter) SheetToDoc(doc *xliffDoc, sheet *xlsx.Sheet) {
 			Target: xliffTransUnitInner{xml.Name{}, target, tLang, "preserve", ""},
 		}
 		if (x.noteColumn > 0) && (x.noteColumn <= len(row.Cells)) {
-			unit.Note = row.Cells[x.noteColumn-1].String()
+			unit.Note, _ = row.Cells[x.noteColumn-1].String()
 		}
 
 		doc.File[0].Body.TransUnit = append(doc.File[0].Body.TransUnit, unit)
