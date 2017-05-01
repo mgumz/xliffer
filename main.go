@@ -35,7 +35,7 @@ func main() {
 	)
 
 	if conv, exist = registeredConverters[args[0]]; !exist {
-		fmt.Fprintf(os.Stderr, "error: unknown command %v\n", args[0])
+		fmt.Fprintf(os.Stderr, "error: unknown converter %v\n", args[0])
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -63,22 +63,32 @@ func main() {
 }
 
 func usage() {
-	fmt.Printf("%s converts to and from XLIFF files\n\n", path.Base(os.Args[0]))
-	fmt.Printf("Usage: %s [-ho] <converter> [cflags]\n\n", os.Args[0])
 
-	var converters = []string{}
+	app := path.Base(os.Args[0])
+
+	fmt.Printf("%s converts to and from XLIFF files\n\n", app)
+	fmt.Printf("Usage: %s [-ho] <converter> [cflags]\n\n", app)
+
+	converters := []string{}
+	longest := 1
+
 	for c, _ := range registeredConverters {
+		if len(c) > longest {
+			longest = len(c)
+		}
 		converters = append(converters, c)
 	}
 	sort.Strings(converters)
+	format := fmt.Sprintf("  %%-%ds - %%s\n", longest)
 
 	fmt.Println("Available converters:\n")
 	for _, c := range converters {
-		fmt.Println("", c, "\t-", registeredConverters[c].Description())
+		fmt.Printf(format, c, registeredConverters[c].Description())
 	}
 	fmt.Println()
 	fmt.Println("Use <converter> -h to get the flags specific for the relevant converter")
 	fmt.Println()
 
 	flag.PrintDefaults()
+	fmt.Println()
 }
