@@ -48,8 +48,13 @@ func (s *swapSourceTarget) Convert(w io.Writer) error {
 			src := doc.File[i].Body.TransUnit[j].Source.Inner
 			target := doc.File[i].Body.TransUnit[j].Target.Inner
 
+			sname := doc.File[i].Body.TransUnit[j].Source.XMLName
+			tname := doc.File[i].Body.TransUnit[j].Target.XMLName
+
 			doc.File[i].Body.TransUnit[j].Source.Inner = target
 			doc.File[i].Body.TransUnit[j].Target.Inner = src
+			doc.File[i].Body.TransUnit[j].Source.XMLName = sname
+			doc.File[i].Body.TransUnit[j].Target.XMLName = tname
 		}
 	}
 

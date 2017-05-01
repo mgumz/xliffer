@@ -14,10 +14,11 @@ import (
 )
 
 type xliffTransUnitInner struct {
-	Inner string `xml:",chardata"`
-	Lang  string `xml:"lang,attr"`
-	Space string `xml:"space,attr,omitempty"`
-	State string `xml:"state,attr,omitempty"`
+	XMLName xml.Name
+	Inner   string `xml:",chardata"`
+	Lang    string `xml:"lang,attr"`
+	Space   string `xml:"space,attr,omitempty"`
+	State   string `xml:"state,attr,omitempty"`
 }
 
 type xliffTransUnit struct {
