@@ -70,10 +70,12 @@ func xliffFromFile(fileName string) (*xliffDoc, error) {
 	}
 	defer f.Close()
 
-	var doc = new(xliffDoc)
-	var dec = xml.NewDecoder(f)
+	doc := new(xliffDoc)
+	dec := xml.NewDecoder(f)
+
 	if err = dec.Decode(doc); err != nil {
 		return nil, err
 	}
+
 	return doc, err
 }

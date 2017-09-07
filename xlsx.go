@@ -9,12 +9,50 @@
 package main
 
 import (
-	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
+	"log"
+	"os"
+	"strings"
 
 	"github.com/tealeg/xlsx"
+)
+
+// converts a single master.xlsx into many .xliff files, ready
+// to be shipped to translators.
+//
+// structure of the master.xlsx:
+//
+// name of sheet: PROJECT_NAME
+//
+// col0 - keys
+// col1 - master-translation
+// col2 - COUNTRY-LANG (iso 2 letter code)
+//
+// example master.xlsx:
+//
+// keys | note-column        | DE-de  | DE-en | EN-en | EN-x
+// x    | greeting           | hallo  | hello | hello | hello
+// y    | saying goodbye     | tschüß | bye   | bye   | bye
+//
+//
+// from-xlsx creates translation .xliff files in the given directory:
+//
+// master.xlsx ->
+//                 DE-de.xliff
+//                 DE-en.xliff
+//                 EN-en.xliff
+//                 EN-x.xliff
+//
+
+const (
+	XLSX_KEY_COLUMN    = 0
+	XLSX_NOTE_COLUMN   = 1
+	XLSX_SOURCE_COLUMN = 2
+	XLSX_TARGET_COLUMN = 3
+
+	XLSX_MAX_SHEETNAME = 30 // xlsx-limit
 )
 
 type xlsxConverter struct {
@@ -27,6 +65,25 @@ type xlsxConverter struct {
 	targetColumn int
 	sourceLang   string
 	targetLang   string
+
+	destDir  string
+	exporter xlsxExporter
+}
+
+type xlsxTransUnit struct {
+	Id         string
+	Source     string
+	SourceLang string
+	Target     string
+	TargetLang string
+	Note       string
+}
+
+type xlsxExporter interface {
+	Open(folder, base string) error
+	Write(units []xlsxTransUnit) error
+	Close() error
+	Filename() string
 }
 
 func init() {
@@ -34,29 +91,55 @@ func init() {
 }
 
 func (x *xlsxConverter) Description() string {
-	return "Converts an Excel sheet to XLIFF"
+	return "Converts an Excel sheet to XLIFF, JSON"
 }
 
 func (x *xlsxConverter) ParseArgs(base string, args []string) error {
 
-	var fs = flag.NewFlagSet(base+" from-xlsx", flag.ExitOnError)
+	fs := flag.NewFlagSet(base+" from-xlsx", flag.ExitOnError)
+	destType := "xliff"
+	pretty := false
 
+	fs.StringVar(&destType, "to", "json", "output format (xliff, json)")
+	fs.BoolVar(&pretty, "pretty", pretty, "pretty print the output files")
 	fs.StringVar(&x.fileName, "in", "", "infile")
-	fs.IntVar(&x.skipRows, "skipRows", 2, "number of rows to skip")
+	fs.IntVar(&x.skipRows, "skip-rows", 0, "number of rows to skip")
 	fs.IntVar(&x.sheetNumber, "sheet", 1, "number of the sheet containing the translations")
-	fs.IntVar(&x.keyColumn, "key-column", 3, "column holding the key / msgid")
-	fs.IntVar(&x.sourceColumn, "source-col", 4, "column holding the source for the translation")
-	fs.IntVar(&x.targetColumn, "target-col", 5, "column holding the target translation")
+	fs.IntVar(&x.keyColumn, "key-column", 0, "column holding the key / msgid")
+	fs.IntVar(&x.sourceColumn, "source-col", -1, "column holding the source for the translation")
+	fs.IntVar(&x.noteColumn, "note-col", -1, "column holding notes (0 - not used)")
+	fs.IntVar(&x.targetColumn, "target-col", -1, "column holding the target translation")
 	fs.StringVar(&x.sourceLang, "source-lang", "en", "source language")
 	fs.StringVar(&x.targetLang, "target-lang", "en", "target language")
-	fs.IntVar(&x.noteColumn, "note-col", 0, "column holding notes (0 - not used)")
+	fs.StringVar(&x.destDir, "dir", "", "output directory")
 
-	return fs.Parse(args)
+	err := fs.Parse(args)
+	if err != nil {
+		return err
+	}
+
+	if x.destDir == "" {
+		x.destDir, _ = os.Getwd()
+	}
+	if err = os.MkdirAll(x.destDir, 0777); err != nil {
+		return err
+	}
+
+	switch destType {
+	case "json":
+		x.exporter = &xlsxJsonExporter{pretty: pretty}
+	case "xliff":
+		x.exporter = &xlsxXliffExporter{pretty: pretty}
+	default:
+		return fmt.Errorf("unsupported 'type': %q", destType)
+	}
+
+	return nil
 }
 
-func (x *xlsxConverter) Convert(w io.Writer) error {
+func (conv *xlsxConverter) Convert(w io.Writer) error {
 
-	var xlFile, err = xlsx.OpenFile(x.fileName)
+	var xlFile, err = xlsx.OpenFile(conv.fileName)
 	if err != nil {
 		return err
 	}
@@ -64,7 +147,7 @@ func (x *xlsxConverter) Convert(w io.Writer) error {
 	var sheet *xlsx.Sheet
 
 	for s := range xlFile.Sheets {
-		if s == (x.sheetNumber - 1) {
+		if s == (conv.sheetNumber - 1) {
 			sheet = xlFile.Sheets[s]
 			break
 		}
@@ -72,60 +155,119 @@ func (x *xlsxConverter) Convert(w io.Writer) error {
 
 	if sheet == nil {
 		return fmt.Errorf("did not find sheet %d in %s\n",
-			x.sheetNumber, x.fileName)
+			conv.sheetNumber, conv.fileName)
 	}
 
-	var doc = newXliffDoc(x.fileName, x.sourceLang)
-	x.SheetToDoc(doc, sheet)
+	keyRow, keyCol := conv.detectBounds(sheet)
+	bodyRow := keyRow + 1
 
-	var out []byte
-	if out, err = xml.MarshalIndent(doc, "", "  "); err != nil {
-		return err
+	srcCol := conv.sourceColumn
+	if srcCol == -1 {
+		// key | note | src | target-1 | target-2
+		srcCol = keyCol + XLSX_SOURCE_COLUMN // TODO: detect "source" if not set
 	}
 
-	io.WriteString(w, xml.Header)
-	w.Write(out)
+	// the target column defines the column where the translated languages
+	// start. if not defined, it defaults to the source column. why?
+	// because that way the "initial" language also gets an export, either
+	// to .xliff (which can then be handed to the translator team) or to
+	// to .json and pretend it's already translated.
+	targetCol := conv.targetColumn
+	if targetCol == -1 {
+		targetCol = srcCol // TODO: detect "target" automatically
+	}
+
+	head := sheet.Rows[keyRow].Cells
+
+	//for x := range head[keyCol:] {
+	//	fmt.Println(x, x+keyCol, head[x].String(), len(head), srcCol)
+	//}
+
+	srcLang := langFromCCLang(head[srcCol].String())
+	rows := sheet.Rows
+
+	for x := targetCol; x < len(rows[keyRow].Cells); x++ {
+
+		cc_lang := head[x].String()
+		lang := langFromCCLang(cc_lang)
+		units := make([]xlsxTransUnit, 0, len(rows)-keyRow)
+
+		for y := bodyRow; y < len(rows); y++ {
+			row := rows[y]
+			if (keyCol >= len(row.Cells)) || row.Cells[keyCol].String() == "" {
+				continue
+			}
+			if (srcCol >= len(row.Cells)) || row.Cells[srcCol].String() == "" {
+				continue
+			}
+			if (x >= len(row.Cells)) || row.Cells[x].String() == "" {
+				continue
+			}
+			unit := conv.rowToTransUnit(y, keyCol, srcCol, x, srcLang, lang, rows)
+			units = append(units, unit)
+		}
+		name := sheet.Name + "-" + cc_lang
+		conv.exportUnits(conv.destDir, name, conv.exporter, units)
+	}
 
 	return nil
 }
 
-func (x *xlsxConverter) SheetToDoc(doc *xliffDoc, sheet *xlsx.Sheet) {
-
-	var sLang, tLang = x.sourceLang, x.targetLang
-	var kCol, sCol, tCol = x.keyColumn - 1, x.sourceColumn - 1, x.targetColumn - 1
-	var key, target, source string
-
-	for r := range sheet.Rows {
-		if r < (x.skipRows) {
-			continue
-		}
-
-		var row = sheet.Rows[r]
-
-		if len(row.Cells)-1 < kCol {
-			continue
-		}
-		if key, _ = row.Cells[kCol].String(); key == "" {
-			continue
-		}
-
-		source, target = "", ""
-		if sCol < len(row.Cells) {
-			source, _ = row.Cells[sCol].String()
-		}
-		if tCol < len(row.Cells) {
-			target, _ = row.Cells[tCol].String()
-		}
-
-		var unit = xliffTransUnit{
-			ID:     key,
-			Source: xliffTransUnitInner{xml.Name{}, source, sLang, "preserve", ""},
-			Target: xliffTransUnitInner{xml.Name{}, target, tLang, "preserve", ""},
-		}
-		if (x.noteColumn > 0) && (x.noteColumn <= len(row.Cells)) {
-			unit.Note, _ = row.Cells[x.noteColumn-1].String()
-		}
-
-		doc.File[0].Body.TransUnit = append(doc.File[0].Body.TransUnit, unit)
+// extracts a row of the following form
+//   key | comment | note | source | target-1 | target-2 | ...
+// into a xlsxTransUnit
+func (conv *xlsxConverter) rowToTransUnit(row, keyCol, sourceCol, targetCol int, sourceLang, targetLang string, rows []*xlsx.Row) xlsxTransUnit {
+	unit := xlsxTransUnit{
+		Id:         rows[row].Cells[keyCol].String(),
+		Source:     rows[row].Cells[sourceCol].String(),
+		SourceLang: sourceLang,
+		Target:     rows[row].Cells[targetCol].String(),
+		TargetLang: targetLang,
 	}
+	return unit
+}
+
+func (conv *xlsxConverter) exportUnits(dir, name string, x xlsxExporter, entries []xlsxTransUnit) {
+	if err := x.Open(dir, name); err != nil {
+		log.Printf("err: opening export file %q: %s", x.Filename(), err)
+		return
+	}
+	defer x.Close()
+
+	if err := x.Write(entries); err != nil {
+		log.Printf("err: write entries to %q: %s", x.Filename(), err)
+		return
+	}
+
+	log.Printf("written %d entries to %q: ok.", len(entries), x.Filename())
+}
+
+func langFromCCLang(cc_lang string) string {
+	parts := strings.Split(cc_lang, "-")
+	if len(parts) == 2 {
+		return parts[1]
+	}
+	return ""
+}
+
+// finds the key-column after x.skipRows, where the content starts
+// aka "the header".
+func (x *xlsxConverter) detectBounds(sheet *xlsx.Sheet) (int, int) {
+
+	var cell *xlsx.Cell
+	i, j := 0, 0
+
+	for i = range sheet.Rows {
+		if i < (x.skipRows) {
+			continue
+		}
+
+		for j, cell = range sheet.Rows[i].Cells {
+			if key := cell.String(); key != "" {
+				return i, j
+			}
+		}
+	}
+
+	return -1, -1
 }
