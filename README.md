@@ -32,8 +32,17 @@ That file can then be used with http://formatjs.io/
 
     Available converters:
 
-     from-xlsx      - Converts an Excel sheet to XLIFF
-     to-json        - Converts XLIFF to JSON (key,value)
+     from-xlsx          - Converts an Excel sheet to XLIFF,JSON
+     to-json            - Converts XLIFF to JSON (key,value)
+     to-xslx            - Converts XLIFF to XLSX (key,note,source,target)
+     blank-target       - Blanks all targets in a XLIFF
+     copy               - Copies SOURCE to TARGET units in a XLIFF
+     dump               - Dumps XLIFF as parsed
+     merge              - Merges two XLIFFs
+     set-lang           - Sets the "lang" attribute of all translation units
+                          of a XLIFF
+     swap-source-target - Swaps source and target attributes of all
+                          translation units of a XLIFF
 
     Use <converter> -h to get the flags specific for the relevant converter
 
@@ -43,7 +52,7 @@ That file can then be used with http://formatjs.io/
       -key-column=3: column holding the key / msgid
       -note-col=0: column holding notes (0 - not used)
       -sheet=1: number of the sheet containing the translations
-      -skipRows=2: number of rows to skip
+      -skip-rows=2: number of rows to skip
       -source-col=4: column holding the source for the translation
       -source-lang="en": source language
       -target-col=5: column holding the target translation
@@ -53,6 +62,16 @@ That file can then be used with http://formatjs.io/
 
       -in="": infile
       -pretty=false: pretty print the resulting json
+
+    to-xlsx:
+      -in="": infile
+      -append="": xlsx-file to integrate the entries from the .xliff to
+      -sheet="": sheet in -append where to append entries to
+      -head-row=0: 
+      -key-column=0: column in which the keys are stored
+      -key-to="": transform a key according to -key-match
+      -key-match="": regular expression to which the keys are matched
+      -target-column=-1: column at which the translated values are stored.
 
 
 ## Building / Installing
