@@ -26,7 +26,7 @@ func init() {
 }
 
 func (s *swapSourceTarget) Description() string {
-	return "Blanks the target-attribute of a XLIFF"
+	return "Swaps source-attribute and target-attribute of a XLIFF"
 }
 
 func (s *swapSourceTarget) ParseArgs(base string, args []string) error {
