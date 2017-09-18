@@ -36,6 +36,10 @@ func (m *mergeConv) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
+func (m *mergeConv) Prepare() error {
+	return nil
+}
+
 func (m *mergeConv) Convert(w io.Writer) error {
 
 	var (

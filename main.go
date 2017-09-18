@@ -45,6 +45,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = conv.Prepare(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
 	var outWriter = os.Stdout
 	if *outFileName != "" && *outFileName != "-" {
 		outFile, err2 := os.Create(*outFileName)

@@ -32,6 +32,9 @@ type toXLSX struct {
 	keyColumn    int
 	headRow      int
 	targetColumn int
+
+	xlFile  *xlsx.File
+	xlSheet *xlsx.Sheet
 }
 
 func init() {
@@ -55,13 +58,35 @@ func (conv *toXLSX) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
-func (conv *toXLSX) Convert(w io.Writer) error {
+// in case of an "append to .xlsx" situation we need to open the .xlsx file
+// before any convertion happens: the -o parameter from xliffer might point
+// to the exact same .xlsx file which "truncates" the .xlsx file in order to
+// provide the 'w' parameter of the .Convert() function. thus, we read in
+// the .xlsx completely before and then it does not matter what happens to
+// to the file
+func (conv *toXLSX) Prepare() error {
 
 	var (
 		file  *xlsx.File
 		sheet *xlsx.Sheet
 		err   error
-		doc   *xliffDoc
+	)
+
+	if file, sheet, err = conv.newOrAppend(); err != nil {
+		return err
+	}
+
+	conv.xlFile = file
+	conv.xlSheet = sheet
+
+	return nil
+}
+
+func (conv *toXLSX) Convert(w io.Writer) error {
+
+	var (
+		err error
+		doc *xliffDoc
 
 		keyTrans = func(in string) string { return in }
 	)
@@ -80,19 +105,15 @@ func (conv *toXLSX) Convert(w io.Writer) error {
 		}
 	}
 
-	if file, sheet, err = conv.newOrAppend(); err != nil {
-		return err
-	}
-
 	// an empty sheet has no header-row
-	conv.ensureRowExists(sheet, conv.headRow)
+	conv.ensureRowExists(conv.xlSheet, conv.headRow)
 
-	targetColumn := conv.getTargetColumn(sheet, conv.headRow)
+	targetColumn := conv.getTargetColumn(conv.xlSheet, conv.headRow)
 
-	existingKeys := conv.keyRowMap(sheet, conv.headRow, conv.keyColumn)
+	existingKeys := conv.keyRowMap(conv.xlSheet, conv.headRow, conv.keyColumn)
 	//fmt.Println("existing keys:", len(existingKeys))
 
-	conv.createSheetHeader(sheet, targetColumn)
+	conv.createSheetHeader(conv.xlSheet, targetColumn)
 	// 2 phases:
 	//
 	// phase-a - find existing keys and write the translations unit.Target at
@@ -119,7 +140,7 @@ func (conv *toXLSX) Convert(w io.Writer) error {
 				continue
 			}
 
-			conv.setCell(sheet, row, targetColumn, entry.Target)
+			conv.setCell(conv.xlSheet, row, targetColumn, entry.Target)
 		}
 	}
 
@@ -127,20 +148,20 @@ func (conv *toXLSX) Convert(w io.Writer) error {
 	//
 	if len(appendix) > 0 {
 
-		cell := sheet.Cell(len(sheet.Rows)+1, conv.keyColumn+XLSX_NOTE_COLUMN)
+		cell := conv.xlSheet.Cell(len(conv.xlSheet.Rows)+1, conv.keyColumn+XLSX_NOTE_COLUMN)
 		cell.SetStyle(conv.boldStyle())
 		cell.SetString("added from " + conv.inFile)
 
 		for _, entry := range appendix {
-			row := len(sheet.Rows)
-			conv.setCell(sheet, row, conv.keyColumn, entry.Key)
-			conv.setCell(sheet, row, conv.keyColumn+XLSX_NOTE_COLUMN, entry.Note)
-			conv.setCell(sheet, row, conv.keyColumn+XLSX_SOURCE_COLUMN, entry.Source)
-			conv.setCell(sheet, row, targetColumn, entry.Target)
+			row := len(conv.xlSheet.Rows)
+			conv.setCell(conv.xlSheet, row, conv.keyColumn, entry.Key)
+			conv.setCell(conv.xlSheet, row, conv.keyColumn+XLSX_NOTE_COLUMN, entry.Note)
+			conv.setCell(conv.xlSheet, row, conv.keyColumn+XLSX_SOURCE_COLUMN, entry.Source)
+			conv.setCell(conv.xlSheet, row, targetColumn, entry.Target)
 		}
 	}
 
-	file.Write(w)
+	conv.xlFile.Write(w)
 
 	return err
 }

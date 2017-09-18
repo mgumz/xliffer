@@ -32,6 +32,10 @@ func (d *dumpXLIFF) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
+func (d *dumpXLIFF) Prepare() error {
+	return nil
+}
+
 func (d *dumpXLIFF) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(d.inFile)

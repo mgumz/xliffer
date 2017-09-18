@@ -35,6 +35,10 @@ func (b *blankTarget) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
+func (b *blankTarget) Prepare() error {
+	return nil
+}
+
 func (b *blankTarget) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(b.inFile)

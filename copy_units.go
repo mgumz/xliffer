@@ -34,6 +34,10 @@ func (c *copyUnits) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
+func (c *copyUnits) Prepare() error {
+	return nil
+}
+
 func (c *copyUnits) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(c.inFile)

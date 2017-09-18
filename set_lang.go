@@ -40,6 +40,10 @@ func (s *setLang) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
+func (s *setLang) Prepare() error {
+	return nil
+}
+
 func (s *setLang) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(s.inFile)

@@ -42,6 +42,10 @@ func (tj *toJSON) ParseArgs(base string, args []string) error {
 	return fs.Parse(args)
 }
 
+func (tj *toJSON) Prepare() error {
+	return nil
+}
+
 func (tj *toJSON) Convert(w io.Writer) error {
 
 	var doc, err = xliffFromFile(tj.inFile)

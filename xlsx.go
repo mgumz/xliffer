@@ -137,6 +137,10 @@ func (x *xlsxConverter) ParseArgs(base string, args []string) error {
 	return nil
 }
 
+func (conv *xlsxConverter) Prepare() error {
+	return nil
+}
+
 func (conv *xlsxConverter) Convert(w io.Writer) error {
 
 	var xlFile, err = xlsx.OpenFile(conv.fileName)

@@ -20,6 +20,9 @@ type converter interface {
 	// parse the flags specific to the converter
 	ParseArgs(base string, args []string) error
 
+	// the step before the actual convertion
+	Prepare() error
+
 	// converts the specified input file
 	Convert(out io.Writer) error
 }
