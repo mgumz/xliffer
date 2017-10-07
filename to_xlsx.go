@@ -178,7 +178,9 @@ func (conv *toXLSX) newOrAppend() (*xlsx.File, *xlsx.Sheet, error) {
 
 		file = xlsx.NewFile()
 		sheetName := path.Base(conv.inFile)
-		sheetName = sheetName[:XLSX_MAX_SHEETNAME]
+		if len(sheetName) >= XLSX_MAX_SHEETNAME {
+			sheetName = sheetName[:XLSX_MAX_SHEETNAME]
+		}
 		sheet, err = file.AddSheet(sheetName)
 		if err != nil {
 			return nil, nil, err
@@ -196,8 +198,11 @@ func (conv *toXLSX) newOrAppend() (*xlsx.File, *xlsx.Sheet, error) {
 			for i := range file.Sheets {
 				if conv.appendSheet == file.Sheets[i].Name {
 					sheet = file.Sheets[i]
+					goto foundSheet
 				}
 			}
+			return nil, nil, fmt.Errorf("sheet %q does not exist in %q", conv.appendSheet, conv.appendFile)
+		foundSheet:
 		}
 	}
 
