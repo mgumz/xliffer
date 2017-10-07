@@ -187,13 +187,13 @@ func (conv *xlsxConverter) Convert(w io.Writer) error {
 	//	fmt.Println(x, x+keyCol, head[x].String(), len(head), srcCol)
 	//}
 
-	srcLang := langFromCCLang(head[srcCol].String())
+	srcLang := conv.langFromBCP47(head[srcCol].String())
 	rows := sheet.Rows
 
 	for x := targetCol; x < len(rows[keyRow].Cells); x++ {
 
-		cc_lang := head[x].String()
-		lang := langFromCCLang(cc_lang)
+		bcp47 := head[x].String()
+		lang := conv.langFromBCP47(bcp47)
 		units := make([]xlsxTransUnit, 0, len(rows)-keyRow)
 
 		for y := bodyRow; y < len(rows); y++ {
@@ -210,7 +210,7 @@ func (conv *xlsxConverter) Convert(w io.Writer) error {
 			unit := conv.rowToTransUnit(y, keyCol, srcCol, x, srcLang, lang, rows)
 			units = append(units, unit)
 		}
-		name := sheet.Name + "-" + cc_lang
+		name := sheet.Name + "-" + bcp47
 		conv.exportUnits(conv.destDir, name, conv.exporter, units)
 	}
 
@@ -246,14 +246,6 @@ func (conv *xlsxConverter) exportUnits(dir, name string, x xlsxExporter, entries
 	log.Printf("written %d entries to %q: ok.", len(entries), x.Filename())
 }
 
-func langFromCCLang(cc_lang string) string {
-	parts := strings.Split(cc_lang, "-")
-	if len(parts) == 2 {
-		return parts[1]
-	}
-	return ""
-}
-
 // finds the key-column after x.skipRows, where the content starts
 // aka "the header".
 func (x *xlsxConverter) detectBounds(sheet *xlsx.Sheet) (int, int) {
@@ -274,4 +266,15 @@ func (x *xlsxConverter) detectBounds(sheet *xlsx.Sheet) (int, int) {
 	}
 
 	return -1, -1
+}
+
+// a very very simplified way of extracting the language part
+// from a BCP47 formed "tag".
+//
+// "en-US" -> "en"
+// "en-US strange comment" -> "en"
+// "well i dont know" -> "well i dont know"
+func (x *xlsxConverter) langFromBCP47(bcp47 string) string {
+	parts := strings.Split(bcp47, "-")
+	return strings.ToLower(parts[0])
 }
