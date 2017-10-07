@@ -50,7 +50,8 @@ func (c *copyUnits) Convert(w io.Writer) error {
 		doc.File[i].TargetLang = doc.File[i].SourceLang
 		for j := range doc.File[i].Body.TransUnit {
 			name := doc.File[i].Body.TransUnit[j].Target.XMLName
-			doc.File[i].Body.TransUnit[j].Target = doc.File[i].Body.TransUnit[j].Source
+			doc.File[i].Body.TransUnit[j].Target = new(xliffTarget)
+			doc.File[i].Body.TransUnit[j].Target.Copy(&doc.File[i].Body.TransUnit[j].Source)
 			doc.File[i].Body.TransUnit[j].Target.XMLName = name
 		}
 	}

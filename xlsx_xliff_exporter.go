@@ -54,12 +54,12 @@ func (exp *xlsxXliffExporter) Write(units []xlsxTransUnit) error {
 	for _, unit := range units {
 		xliffUnit := xliffTransUnit{
 			ID: unit.Id,
-			Source: xliffTransUnitInner{
+			Source: xliffSource{
 				Lang:  unit.SourceLang,
 				Inner: unit.Source,
 				Space: "preserve",
 			},
-			Target: xliffTransUnitInner{
+			Target: &xliffTarget{
 				Lang:  unit.TargetLang,
 				Inner: unit.Target,
 				Space: "preserve",

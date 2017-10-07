@@ -9,11 +9,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/xml"
+	"io"
 	"os"
 )
 
-type xliffTransUnitInner struct {
+type xliffSource struct {
 	XMLName xml.Name
 	Inner   string `xml:",chardata"`
 	Lang    string `xml:"lang,attr"`
@@ -21,11 +23,18 @@ type xliffTransUnitInner struct {
 	State   string `xml:"state,attr,omitempty"`
 }
 
+// xliffTarget might containt <mrk> tags which are leftovers from
+// translation tools. as a result, "chardata" of a <target> node
+// might be empty because all the translations are contained inside
+// several <mrk>tags</mrk>. this is why we treat <target> similar to
+// <source> but not equally.
+type xliffTarget xliffSource
+
 type xliffTransUnit struct {
-	ID     string              `xml:"id,attr"`
-	Source xliffTransUnitInner `xml:"source"`
-	Target xliffTransUnitInner `xml:"target"`
-	Note   string              `xml:"note,omitempty"`
+	ID     string       `xml:"id,attr"`
+	Source xliffSource  `xml:"source"`
+	Target *xliffTarget `xml:"target,omitempty"`
+	Note   string       `xml:"note,omitempty"`
 }
 
 type xliffBody struct {
@@ -70,12 +79,62 @@ func xliffFromFile(fileName string) (*xliffDoc, error) {
 	}
 	defer f.Close()
 
-	doc := new(xliffDoc)
-	dec := xml.NewDecoder(f)
+	return xliffFromReader(f)
+}
 
-	if err = dec.Decode(doc); err != nil {
+func xliffFromReader(r io.Reader) (*xliffDoc, error) {
+
+	doc := new(xliffDoc)
+	dec := xml.NewDecoder(r)
+
+	if err := dec.Decode(doc); err != nil {
 		return nil, err
 	}
+	return doc, nil
+}
 
-	return doc, err
+func (to *xliffTarget) Copy(from *xliffSource) {
+	to.XMLName = from.XMLName
+	to.Inner = from.Inner
+	to.Lang = from.Lang
+	to.Space = from.Space
+	to.State = from.State
+}
+
+// extract all chardata from a <target>-node, including all subnodes
+func (target *xliffTarget) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+
+	buf := bytes.NewBuffer(nil)
+
+	for {
+		token, err := d.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		switch t := token.(type) {
+		case xml.StartElement:
+			if t.Name.Local == "target" {
+				for _, attr := range t.Attr {
+					switch attr.Name.Local {
+					case "lang":
+						target.Lang = attr.Value
+					case "space":
+						target.Space = attr.Value
+					case "state":
+						target.State = attr.Value
+					}
+				}
+			}
+		case xml.CharData:
+			buf.Write(t)
+		}
+	}
+
+	target.Inner = buf.String()
+
+	return nil
 }
