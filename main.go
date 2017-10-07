@@ -19,8 +19,14 @@ import (
 func main() {
 
 	outFileName := flag.String("o", "-", "output file (default: \"-\"|stdout)")
+	version := flag.Bool("v", false, "show version and exit")
 	flag.Usage = usage
 	flag.Parse()
+
+	if *version {
+		printVersion()
+		os.Exit(0)
+	}
 
 	var args = flag.Args()
 	if len(args) < 1 {
